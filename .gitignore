@@ -216,3 +216,13 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Node / React Frontend
+node_modules/
+dist/
+build/
+.npm/
+
+# Environment Variables
+.env
+.env.local
