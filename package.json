@@ -1,0 +1,19 @@
+{
+  "dependencies": {
+    "@deck.gl/layers": "^9.2.11",
+    "@deck.gl/react": "^9.2.11",
+    "@tanstack/react-query": "^5.96.1",
+    "framer-motion": "^12.38.0",
+    "lucide-react": "^1.7.0",
+    "maplibre-gl": "^5.21.1",
+    "react-hook-form": "^7.72.0",
+    "react-map-gl": "^8.1.0",
+    "recharts": "^3.8.1",
+    "zod": "^4.3.6",
+    "zustand": "^5.0.12"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.2.2",
+    "tailwindcss": "^4.2.2"
+  }
+}
