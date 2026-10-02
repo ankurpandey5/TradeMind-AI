@@ -9,6 +9,7 @@ from orchestrator.llm import get_llm
 
 # Agent imports
 from orchestrator.agents.opportunity_finder import execute_opportunity_search
+from orchestrator.agents.compliance_agent import execute_compliance_check
 from shared.schemas import AgentState
 
  
@@ -20,46 +21,46 @@ llm = get_llm(temperature=0)
 # ============================================================
 
 def task_allocator(state: AgentState):
-    """
-    Routes the user's request to the appropriate specialized agent.
 
-    Currently, opportunity_finder is the only available agent,
-    so all requests are routed to it.
-    """
-
-    opportunity_finder = {
-        "agent": "opportunity_finder",
-        "action": "add_opportunity"
-    }
+    if "compliance" in state["input_prompt"].lower():
+        return {
+            "target_agent": {
+                "agent": "compliance_agent",
+                "action": "check_compliance"
+            }
+        }
 
     return {
-        "target_agent": opportunity_finder
+        "target_agent": {
+            "agent": "opportunity_finder",
+            "action": "add_opportunity"
+        }
     }
-
 
 # ============================================================
 # 2. SPECIALIZED AGENT EXECUTION
 # ============================================================
 
 def call_specialized_agent(state: AgentState):
-    """
-    Executes the specialized agent selected by the task allocator.
-    """
 
-    if state["target_agent"]["agent"] == "opportunity_finder":
+    agent = state["target_agent"]["agent"]
 
+    if agent == "opportunity_finder":
         result = execute_opportunity_search(
             state["input_prompt"]
         )
 
-        return {
-            "agent_raw_output": result
-        }
+    elif agent == "compliance_agent":
+        result = execute_compliance_check(
+            state["input_prompt"]
+        )
+
+    else:
+        result = "No suitable agent found."
 
     return {
-        "agent_raw_output": "No suitable agent found."
+        "agent_raw_output": result
     }
-
 
 # ============================================================
 # 3. UI CONTROLLER
@@ -72,6 +73,7 @@ def ui_controller(state: AgentState):
     """
 
     raw_output = state["agent_raw_output"]
+    agent = state["target_agent"]["agent"]
 
     print(
         f"\n[UI_CONTROLLER] Raw output from agent:\n"
@@ -80,7 +82,6 @@ def ui_controller(state: AgentState):
     )
 
     try:
-
         # Convert JSON string → Python dictionary
         parsed_data = json.loads(raw_output)
 
@@ -97,38 +98,120 @@ def ui_controller(state: AgentState):
             file=sys.stderr
         )
 
-        parsed_data = {
-            "message": "Analysis partially failed. Raw data preserved.",
-            "opportunities": []
+        # Different fallback depending on agent
+        if agent == "opportunity_finder":
+            parsed_data = {
+                "message": "Opportunity analysis partially failed.",
+                "opportunities": []
+            }
+
+        elif agent == "compliance_agent":
+            parsed_data = {
+                "message": "Compliance analysis partially failed.",
+                "requirements": [],
+                "certifications": [],
+                "risks": []
+            }
+
+        else:
+            parsed_data = {
+                "message": "Analysis partially failed."
+            }
+
+    # --------------------------------------------------------
+    # Opportunity Finder UI Signal
+    # --------------------------------------------------------
+
+    if agent == "opportunity_finder":
+
+        signal = {
+            "agent": agent,
+
+            "action": "add_opportunity",
+
+            "payload": {
+                "message": parsed_data.get(
+                    "message",
+                    "Scouting complete."
+                ),
+
+                "opportunities": parsed_data.get(
+                    "opportunities",
+                    []
+                ),
+
+                "timestamp": datetime.datetime.now(
+                    datetime.UTC
+                ).isoformat()
+            },
+
+            "status": "success"
         }
 
     # --------------------------------------------------------
-    # Create standardized UI signal
+    # Compliance Agent UI Signal
     # --------------------------------------------------------
 
-    signal = {
-        "agent": state["target_agent"]["agent"],
+    elif agent == "compliance_agent":
 
-        "action": "add_opportunity",
+        signal = {
+            "agent": agent,
 
-        "payload": {
-            "message": parsed_data.get(
-                "message",
-                "Scouting complete."
-            ),
+            "action": "add_compliance",
 
-            "opportunities": parsed_data.get(
-                "opportunities",
-                []
-            ),
+            "payload": {
+                "message": parsed_data.get(
+                    "message",
+                    "Compliance analysis complete."
+                ),
 
-            "timestamp": datetime.datetime.now(
-                datetime.UTC
-            ).isoformat()
-        },
+                "requirements": parsed_data.get(
+                    "requirements",
+                    []
+                ),
 
-        "status": "success"
-    }
+                "certifications": parsed_data.get(
+                    "certifications",
+                    []
+                ),
+
+                "risks": parsed_data.get(
+                    "risks",
+                    []
+                ),
+
+                "timestamp": datetime.datetime.now(
+                    datetime.UTC
+                ).isoformat()
+            },
+
+            "status": "success"
+        }
+
+    # --------------------------------------------------------
+    # Unknown Agent
+    # --------------------------------------------------------
+
+    else:
+
+        signal = {
+            "agent": agent,
+
+            "action": "unknown",
+
+            "payload": {
+                "message": parsed_data.get(
+                    "message",
+                    "Agent completed the task."
+                ),
+
+                "timestamp": datetime.datetime.now(
+                    datetime.UTC
+                ).isoformat()
+            },
+
+            "status": "success"
+        }
 
     print(
         "[UI_CONTROLLER] Final signal:\n"
@@ -139,7 +222,6 @@ def ui_controller(state: AgentState):
     return {
         "ui_signals": [signal]
     }
-
 
 # ============================================================
 # 4. ASSEMBLE LANGGRAPH WORKFLOW
