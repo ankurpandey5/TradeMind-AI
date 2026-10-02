@@ -226,3 +226,6 @@ build/
 # Environment Variables
 .env
 .env.local
+
+#project info
+project_info.md

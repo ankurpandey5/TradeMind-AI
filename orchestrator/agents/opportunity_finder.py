@@ -1,19 +1,8 @@
-import os
-from dotenv import load_dotenv
-from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.messages import SystemMessage, HumanMessage
+from orchestrator.llm import get_llm
 
-# Load API Key from .env relative to this file
-env_path = os.path.abspath(
-    os.path.join(os.path.dirname(__file__), '../../.env')
-)
-load_dotenv(dotenv_path=env_path)
 
-llm = ChatGoogleGenerativeAI(
-    model="gemini-2.5-flash",
-    temperature=0.3,
-    google_api_key=os.getenv("GOOGLE_API_KEY")
-)
+llm = get_llm(temperature=0.3)
 
 
 def execute_opportunity_search(prompt: str) -> str:
